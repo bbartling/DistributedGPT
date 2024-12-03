@@ -4,7 +4,7 @@ This is a hobby project primarily for learning and experimentation using three o
 The goal is to explore the feasibility of distributing a GPT-2 model across multiple devices and leveraging parallel computing techniques to enable efficient operation of a large language model. 
 
 
-## Notes
+## Setup Notes
 
 On all 3 Pi's setup virtual env and install packages:
 ```bash
@@ -65,3 +65,56 @@ On the bosspi run the script with MPI
 mpirun -np 3 --hostfile ~/mpi_hosts /home/ben/mpi_env/bin/python3 ~/distilgpt2_distributed.py
 ```
 
+## Setup With Ansible
+Notes to running Pi clusters with Ansible.
+
+- **Ansible Inventory**: Defines the cluster nodes and their connection details.
+- **MPI Hostfile**: Specifies the nodes and slots for MPI execution.
+- **Ansible Playbook**: Automates cluster health checks and MPI program execution.
+
+### **Files and Configuration**
+
+#### **3.1 Ansible Inventory File (`~/ansible_hosts`)**
+Defines the nodes for Ansible automation:
+```ini
+[all]
+bosspi ansible_host=192.168.1.149 ansible_connection=local
+workerpi1 ansible_host=192.168.1.181 ansible_user=ben
+workerpi2 ansible_host=192.168.1.183 ansible_user=ben
+```
+
+#### **3.2 MPI Hostfile (`~/mpi_hostfile`)**
+Specifies the nodes and slots for MPI execution:
+```plaintext
+192.168.1.149 slots=1
+192.168.1.181 slots=1
+192.168.1.183 slots=1
+```
+
+## **Run All With Ansible Playbook**
+
+```bash
+ansible-playbook -i ~/ansible_hosts ~/run_mpi_with_health.yml
+```
+
+## **Individual Ansible Commands**
+
+Ping all Pi's:
+```bash
+ansible all -i ~/ansible_hosts -m ping
+```
+
+Check memory on all Pi's:
+```bash
+ansible all -i ~/ansible_hosts -m command -a "free -m"
+```
+
+Distribute new Py file to all Pi's:
+```bash
+ansible all -i ~/ansible_hosts -m copy -a "src=/home/ben/mpi_hello_world.py dest=/home/ben/mpi_hello_world.py owner=ben mode=0755"
+```
+
+Run MPI program on the Boss Pi:
+```bash
+ansible bosspi -i ~/ansible_hosts -m shell -a "mpirun -np 3 --hostfile /home/ben/mpi_hostfile /home/ben/mpi_env/bin/python3 /home/ben/mpi_hello_world.py"
+```
