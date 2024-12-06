@@ -17,28 +17,18 @@ if size != 3:
 model_name = "distilgpt2"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 
+# Rank-specific model loading
 if rank == 0:
-    # Rank 0: Load first part of the model
     print(f"Rank {rank}: Loading the first part of the model.")
-    model_full = AutoModelForCausalLM.from_pretrained(
-        model_name, low_cpu_mem_usage=True
-    )
+    model_full = AutoModelForCausalLM.from_pretrained(model_name, low_cpu_mem_usage=True)
     embedding_layer = model_full.transformer.wte  # Token embedding layer
     model_part = model_full.transformer.h[:2]  # First 2 layers
 elif rank == 1:
-    # Rank 1: Load second part of the model
     print(f"Rank {rank}: Loading the second part of the model.")
-    model_full = AutoModelForCausalLM.from_pretrained(
-        model_name, low_cpu_mem_usage=True
-    )
-    model_part = model_full.transformer.h[2:4]  # Next 2 layers
+    model_part = AutoModelForCausalLM.from_pretrained(model_name, low_cpu_mem_usage=True).transformer.h[2:4]
 elif rank == 2:
-    # Rank 2: Load third part of the model
     print(f"Rank {rank}: Loading the third part of the model.")
-    model_full = AutoModelForCausalLM.from_pretrained(
-        model_name, low_cpu_mem_usage=True
-    )
-    model_part = model_full.transformer.h[4:6]  # Last 2 layers
+    model_part = AutoModelForCausalLM.from_pretrained(model_name, low_cpu_mem_usage=True).transformer.h[4:6]
 
 # Synchronize nodes
 comm.barrier()

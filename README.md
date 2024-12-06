@@ -86,9 +86,9 @@ workerpi2 ansible_host=192.168.1.183 ansible_user=ben
 #### **3.2 MPI Hostfile (`~/mpi_hostfile`)**
 Specifies the nodes and slots for MPI execution:
 ```plaintext
-192.168.1.149 slots=1
-192.168.1.181 slots=1
-192.168.1.183 slots=1
+192.168.1.149 slots=1 # bosspi
+192.168.1.181 slots=1 # workerpi1
+192.168.1.183 slots=1 # workerpi2
 ```
 
 ## **Run All With Ansible Playbook**
