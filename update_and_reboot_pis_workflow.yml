@@ -1,0 +1,111 @@
+- name: Copy main.py to all worker Pis
+  hosts: worker_pis
+  tasks:
+    - name: Copy main.py to workers
+      copy:
+        src: "/home/ben/main.py"
+        dest: "/home/ben/main.py"
+        owner: ben
+        mode: '0755'
+      tags: copy_files
+
+
+- name: Update All Pis
+  hosts: all
+  become: true
+  tasks:
+    - name: Update apt package list
+      apt:
+        update_cache: yes
+
+    - name: Upgrade all installed packages
+      apt:
+        upgrade: dist
+        autoremove: yes
+
+- name: Install Project Dependencies with System Packages
+  hosts: all
+  become: true
+  tags: install_dependencies
+  tasks:
+    - name: Install system dependencies
+      apt:
+        name:
+          - python3-pip
+          - python3-venv
+          - python3-mpi4py
+        state: present
+
+    - name: Create Python virtual environment with system-site-packages
+      command:
+        cmd: python3 -m venv /home/ben/mpi_env --system-site-packages
+        creates: /home/ben/mpi_env
+
+    - name: Activate virtual environment and upgrade pip
+      shell: |
+        . /home/ben/mpi_env/bin/activate && pip install --upgrade pip
+      args:
+        executable: /bin/bash
+
+    - name: Install additional Python packages in virtual environment
+      shell: |
+        . /home/ben/mpi_env/bin/activate && pip install torch transformers fastapi uvicorn
+      args:
+        executable: /bin/bash
+
+    - name: Verify installed Python packages
+      shell: |
+        . /home/ben/mpi_env/bin/activate && pip list
+      register: pip_list
+      args:
+        executable: /bin/bash
+
+    - name: Display installed Python packages
+      debug:
+        var: pip_list.stdout
+
+- name: Check Installed Python Packages on All Pis
+  hosts: all
+  tags: check_packages
+  tasks:
+    - name: Check if mpi4py is installed
+      shell: |
+        . /home/ben/mpi_env/bin/activate && pip show mpi4py
+      register: mpi4py_check
+      failed_when: "'Name: mpi4py' not in mpi4py_check.stdout"
+
+    - name: Check if torch is installed
+      shell: |
+        . /home/ben/mpi_env/bin/activate && pip show torch
+      register: torch_check
+      failed_when: "'Name: torch' not in torch_check.stdout"
+
+    - name: Check if transformers is installed
+      shell: |
+        . /home/ben/mpi_env/bin/activate && pip show transformers
+      register: transformers_check
+      failed_when: "'Name: transformers' not in transformers_check.stdout"
+
+    - name: Check if FastAPI is installed (Rank 0 Only)
+      shell: |
+        . /home/ben/mpi_env/bin/activate && pip show fastapi
+      register: fastapi_check
+      failed_when: "'Name: fastapi' not in fastapi_check.stdout"
+      when: "'bosspi' in inventory_hostname"
+
+    - name: Display package check results
+      debug:
+        msg: |
+          mpi4py: {{ mpi4py_check.stdout | default('Not Found') }}
+          torch: {{ torch_check.stdout | default('Not Found') }}
+          transformers: {{ transformers_check.stdout | default('Not Found') }}
+          fastapi: {{ fastapi_check.stdout | default('Not Applicable') }}
+
+- name: Reboot Worker Pis
+  hosts: worker_pis
+  become: true
+  tags: reboot
+  tasks:
+    - name: Reboot the Worker Pis
+      reboot:
+        reboot_timeout: 300
