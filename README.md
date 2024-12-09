@@ -1,8 +1,23 @@
 # DistributedGPT
 
-This is a hobby project primarily for learning and experimentation using three old Raspberry Pi Model B units that were gathering dust. 
-The goal is to explore the feasibility of distributing a GPT-2 model across multiple devices and leveraging parallel computing techniques to enable efficient operation of a large language model. 
+This is a hobby project aimed at learning and experimentation. The primary goal is to explore whether cluster computing can be used to run a large language model (LLM) across multiple computers, ultimately finding a cost-effective way to operate an LLM on my own hardware. For this experiment, I’m using three Raspberry Pi devices, which were repurposed from previous projects and cost nothing additional. 
 
+Currently, I’m running a distilled version of GPT-2, with each Raspberry Pi loading a portion of the model. While the setup is functional, it’s extremely slow, and the model outputs are practically useless—but it works! This sparks the question: why couldn’t this approach be scaled up using three affordable, used gaming PCs equipped with GPUs, such as NVIDIA RTX 3060s? This could potentially make cluster computing a viable and low-cost way to run an LLM entirely on local hardware.
+
+## MPI
+
+I've been reading *The Art of HPC* by Victor Eijkhout, an excellent resource for learning about cluster computing, parallel computing, and high-performance computing concepts.
+* https://theartofhpc.com/
+
+HTML online free version for a book about the science of computing, `The Art of HPC`, volume 1 by Victor Eijkhout:
+* https://theartofhpc.com/istc/index.html
+
+## Architecture
+Cluster computing relies on networking to enable communication between computers. In my current setup, each Raspberry Pi uses a dynamic IP address assigned via DHCP by a router. For now, this is sufficient, as the project is more of a science experiment focused on rapid prototyping to explore what can be achieved. 
+
+Future iterations will likely include static IP assignments and enhanced security measures. Ideally, the "Boss Pi" would be a computer with two NICs (network interface cards). One NIC would facilitate communication with the worker Pis on a dedicated subnet, while the other NIC would handle external access, limited only to the Boss Pi. This setup would allow the Boss Pi to manage tasks like running Ansible and hosting a web app for API interactions, ensuring both functionality and isolation.
+
+![architecture](images/arch.jpg)
 
 ## Setup Notes
 
