@@ -93,5 +93,57 @@ Notes automating tasks with Ansible.
 - **Copy Files Over to Worker Pis**: 
   Executes only the file copy task of `main.py` from boss pi to worker pis:
   ```bash
-  ansible-playbook -i /home/ben/ansible_hosts /home/ben/update_and_reboot_pis_workflow.yml --tags "copy_files" -vv
+  ansible-playbook -i /home/ben/ansible_hosts /home/ben/update_and_reboot_pis_workflow.yml --tags "copy_mainpy_to_workers" -vv
   ```
+
+- **Ensure Model Directory Exists on All Pis**:  
+  Ensures the `/home/ben/model_parts` directory exists on all Pis:
+  ```bash
+  ansible-playbook -i /home/ben/ansible_hosts /home/ben/update_and_reboot_pis_workflow.yml --tags "ensure_model_dir" -vv
+  ```
+
+- **Download and Serialize Model on Boss Pi**:  
+  Downloads the `distilgpt2` model on the Boss Pi, serializes it into layers, and saves the parts in `/home/ben/model_parts`:
+  ```bash
+  ansible-playbook -i /home/ben/ansible_hosts /home/ben/update_and_reboot_pis_workflow.yml --tags "download_new_model_on_boss" -vv
+  ```
+
+- **Distribute Model Parts to Worker Pis**:  
+  Copies the serialized model parts from the Boss Pi to all Worker Pis:
+  ```bash
+  ansible-playbook -i /home/ben/ansible_hosts /home/ben/update_and_reboot_pis_workflow.yml --tags "distribute_new_model_to_workers" -vv
+  ```
+
+## **Run `main.py` with MPI** 
+Executes the `main.py` script using MPI across the Boss Pi and Worker Pis:
+```bash
+mpirun -np 3 --hostfile ~/mpi_hostfile /home/ben/mpi_env/bin/python3 /home/ben/main.py
+```
+- **Explanation**:
+  - `mpirun`: Runs the MPI program.
+  - `-np 3`: Specifies 3 processes to run (1 for each Pi: Boss and 2 Workers).
+  - `--hostfile ~/mpi_hostfile`: Specifies the hostfile containing the IPs or hostnames of the participating Pis.
+  - `/home/ben/mpi_env/bin/python3 /home/ben/main.py`: Executes the Python script `main.py` using the virtual environment `mpi_env`.
+
+
+## Inference notes across multiple devices
+
+### **Rank 0 (Boss Pi/Web Server):**
+- **Receives prompt via FastAPI**: The `generate_text` method handles the incoming HTTP request. This corresponds to the diagram's "Receive prompt" step.
+- **Tokenizes prompt and generates embeddings**: The code tokenizes the prompt and converts it into embeddings using `embedding_layer`. This is the "Tokenize prompt" and "Generate embeddings" step.
+- **Processes embeddings through its model layers**: The embeddings are forwarded through Rank 0's portion of the model via `forward_through_layers`. This is the "Forward embeddings" step.
+- **Sends data to Rank 1 and Rank 2**: Activations are sent to Rank 1, and input IDs are sent to Rank 2 using `comm.send`. This corresponds to "Send activations to Rank 1" and "Send input IDs to Rank 2".
+- **Receives generated text from Rank 2**: Rank 0 waits for and receives the final generated text from Rank 2. This is the "Receive generated text from Rank 2" step.
+- **Returns the response to the client**: The generated text is returned as the HTTP response. This completes the process.
+
+### **Rank 1 (Worker Pi 1):**
+- **Receives activations from Rank 0**: The `comm.recv` method waits for activations from Rank 0. This matches the "Receive activations from Rank 0" step.
+- **Processes activations through its model layers**: The activations are forwarded through Rank 1's portion of the model. This is the "Forward activations" step.
+- **Sends intermediate activations to Rank 2**: The intermediate activations are sent to Rank 2. This is the "Send activations to Rank 2" step.
+
+### **Rank 2 (Worker Pi 2):**
+- **Receives activations from Rank 1 and input IDs from Rank 0**: The `comm.recv` calls wait for activations from Rank 1 and input IDs from Rank 0. This corresponds to "Receive intermediate activations from Rank 1" and "Receive input IDs from Rank 0".
+- **Processes activations through its model layers**: The activations are processed through Rank 2's portion of the model. This is the "Forward activations" step.
+- **Generates text using the final activations**: The text is generated using the `generate` method of the `model_full`. This matches the "Generate text using final activations" step.
+- **Sends the generated text to Rank 0**: The generated text is sent back to Rank 0. This is the "Send generated text to Rank 0" step.
+
