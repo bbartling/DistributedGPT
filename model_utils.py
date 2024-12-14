@@ -7,12 +7,6 @@ def load_tokenizer_from_cache(directory):
     """Load the tokenizer from the local cache directory."""
     if not os.path.exists(directory):
         raise FileNotFoundError(f"The directory '{directory}' does not exist.")
-    
-    expected_files = ['tokenizer.json', 'tokenizer_config.json', 'vocab.json', 'merges.txt']
-    for file in expected_files:
-        if not os.path.exists(os.path.join(directory, file)):
-            raise FileNotFoundError(f"Expected file '{file}' not found in directory '{directory}'.")
-    
     return AutoTokenizer.from_pretrained(directory)
 
 
@@ -20,22 +14,37 @@ def load_model_from_cache(directory):
     """Load the model from the local cache directory."""
     if not os.path.exists(directory):
         raise FileNotFoundError(f"The directory '{directory}' does not exist.")
-    
-    expected_files = ['config.json', 'model.safetensors', 'generation_config.json']
-    for file in expected_files:
-        if not os.path.exists(os.path.join(directory, file)):
-            raise FileNotFoundError(f"Expected file '{file}' not found in directory '{directory}'.")
-    
-    return AutoModelForCausalLM.from_pretrained(directory, low_cpu_mem_usage=True)
+    return AutoModelForCausalLM.from_pretrained(directory)
+
+
+def calculate_chunks(num_layers, model_size_gb, available_memory_gb):
+    """Calculate number of chunks based on available memory."""
+    memory_per_layer_gb = model_size_gb / num_layers
+    layers_per_chunk = max(1, int(available_memory_gb / memory_per_layer_gb))
+    chunks = max(3, (num_layers + layers_per_chunk - 1) // layers_per_chunk)  # Ensure at least 3 chunks
+    return chunks
+
+
+def split_and_save_model(model, num_chunks, directory="./model_parts"):
+    """Split the model into parts and save."""
+    os.makedirs(directory, exist_ok=True)
+    num_layers = len(model.transformer.h)
+    layers_per_chunk = (num_layers + num_chunks - 1) // num_chunks  # Round up
+
+    for i in range(0, num_layers, layers_per_chunk):
+        part = torch.nn.ModuleList(model.transformer.h[i:i + layers_per_chunk])
+        torch.save(part.state_dict(), os.path.join(directory, f"rank{i // layers_per_chunk}.pt"))
+        print(f"Saved part {i // layers_per_chunk}")
+
+    print("\nModel parts saved successfully!")
 
 
 def load_model_part(file_path, model_part, device):
-    """Load a specific model part with `weights_only=True`."""
-    state_dict = torch.load(file_path, map_location=device, weights_only=True)
+    """Load a specific model part from saved chunks."""
     part = torch.nn.ModuleList(model_part)
+    state_dict = torch.load(file_path, map_location=device, weights_only=True)
     part.load_state_dict(state_dict)
     return part.to(device)
-
 
 def modular_forward(input_ids, parts, model, device):
     """Perform forward pass through modularized model."""
