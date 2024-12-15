@@ -17,9 +17,8 @@ except Exception as e:
     print(f"Error authenticating with Hugging Face Hub: {e}")
 
 
-#tokenizer = AutoTokenizer.from_pretrained("meta-llama/CodeLlama-7b-Python-hf")
-#model = AutoModelForCausalLM.from_pretrained("meta-llama/CodeLlama-7b-Python-hf")
+#tokenizer = AutoTokenizer.from_pretrained("tiiuae/falcon-40b") 
+#model = AutoModelForCausalLM.from_pretrained("tiiuae/falcon-40b")
 
-
-tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.2-1B")
-model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.2-1B")
+tokenizer = AutoTokenizer.from_pretrained("tiiuae/falcon-7b")
+model = AutoModelForCausalLM.from_pretrained("tiiuae/falcon-7b")

@@ -27,12 +27,25 @@ def calculate_chunks(num_layers, model_size_gb, available_memory_gb):
 
 def split_and_save_model(model, num_chunks, directory="./model_parts"):
     """Split the model into parts and save."""
+    import os
+    import torch
+    
     os.makedirs(directory, exist_ok=True)
-    num_layers = len(model.transformer.h)
+
+    # Generalized layer selection logic
+    if hasattr(model, "transformer") and hasattr(model.transformer, "h"):
+        layers = model.transformer.h
+    elif hasattr(model, "model") and hasattr(model.model, "layers"):
+        layers = model.model.layers
+    else:
+        raise AttributeError("Cannot determine the layers for splitting the model.")
+
+    num_layers = len(layers)
     layers_per_chunk = (num_layers + num_chunks - 1) // num_chunks  # Round up
 
+    # Split and save chunks
     for i in range(0, num_layers, layers_per_chunk):
-        part = torch.nn.ModuleList(model.transformer.h[i:i + layers_per_chunk])
+        part = torch.nn.ModuleList(layers[i:i + layers_per_chunk])
         torch.save(part.state_dict(), os.path.join(directory, f"rank{i // layers_per_chunk}.pt"))
         print(f"Saved part {i // layers_per_chunk}")
 
