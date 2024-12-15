@@ -58,6 +58,12 @@ Model: models--meta-llama--Llama-3.1-8B, Size: 14.97 GB
 Model: models--meta-llama--Llama-3.2-1B, Size: 2.31 GB
 ```
 
+## Remove a model with PowerShell
+
+```powershell
+Remove-Item -Recurse -Force "models--meta-llama--Llama-3.2-1B"
+```
+
 ## Splitting up the model 
 
 With a text editor in `split_up_model.py` hard code in your model cache location and size:
@@ -105,15 +111,29 @@ Tokenizer loaded successfully!
 Model loaded successfully!
 ```
 
-## TODO 
+## Lesson Learned So Far...
 
-- [x] Test on GPT2
-- [ ] Test on Llama-3.2-1B
-- [ ] Test on Llama-3.1-8B
-- [ ] Test with a GPU that supports CUDA! 
-- [ ] Test on Llama-3.3-70B-Instruct with a [chat template like](https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct#:~:text=Here%20is%20a%20quick%20example%20showing%20a%20single%20simple%20tool)
-- [ ] Experiment with multi-agent(s) doing tasks for the human...
-- [ ] Anything else? 🤔
+- [x] **Test on GPT2**  
+  *Works, but it’s GPT2!*
+  
+- [x] **Test on Llama-3.2-1B**  
+  *Errors trying to use Llama models.*
+  
+- [x] **Test on Llama-3.1-8B**  
+  *Errors trying to use Llama models.*
+  
+- [x] **Test on `tiiuae/falcon-7b`**  
+  *Works, but inference results are odd and the computer is very laggy. Planning to try the instruct version for better memory handling.*
+  *Try the fine tuned instruct version and research a prompt template to use to be built into the `run_an_inf_tester.py`.*
+
+- [ ] **Test on `tiiuae/falcon-7b-instruct`**
+
+- [ ] **Test with a GPU that supports CUDA!**
+
+- [ ] **Experiment with multi-agent(s) performing tasks for the human.**
+
+- [ ] **Brainstorm further ideas or improvements.** 🤔
+
 
 ## License
 

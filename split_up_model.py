@@ -2,8 +2,8 @@ import psutil
 from model_utils import load_tokenizer_from_cache, load_model_from_cache, calculate_chunks, split_and_save_model
 
 # Define cache directory
-CACHE_DIRECTORY = r"C:\Users\ben\.cache\huggingface\hub\models--meta-llama--Llama-3.1-8B\snapshots\d04e592bb4f6aa9cfee91e2e20afa771667e1d4b"
-MODEL_SIZE_GIGS = 14.97  # Model size in GB (from PowerShell output)
+CACHE_DIRECTORY = r"C:\Users\ben\.cache\huggingface\hub\models--tiiuae--falcon-7b\snapshots\ec89142b67d748a1865ea4451372db8313ada0d8"
+MODEL_SIZE_GIGS = 13.45  # Model size in GB (from PowerShell output)
 
 # Load tokenizer and model
 tokenizer = load_tokenizer_from_cache(CACHE_DIRECTORY)

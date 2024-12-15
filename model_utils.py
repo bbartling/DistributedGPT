@@ -26,7 +26,8 @@ def calculate_chunks(num_layers, model_size_gb, available_memory_gb):
 
 
 def split_and_save_model(model, num_chunks, directory="./model_parts"):
-    """Split the model into parts and save."""
+    print("Spliting the model into parts and save....")
+
     import os
     import torch
     
@@ -41,7 +42,10 @@ def split_and_save_model(model, num_chunks, directory="./model_parts"):
         raise AttributeError("Cannot determine the layers for splitting the model.")
 
     num_layers = len(layers)
+    print("num_layers: ",num_layers)
+
     layers_per_chunk = (num_layers + num_chunks - 1) // num_chunks  # Round up
+    print("layers_per_chunk: ",layers_per_chunk)
 
     # Split and save chunks
     for i in range(0, num_layers, layers_per_chunk):
@@ -88,3 +92,9 @@ def generate_text_modular(input_ids, parts, model, device, max_new_tokens, tempe
         if next_token_id.item() == model.config.eos_token_id:
             break
     return generated_ids
+
+
+def build_alibi(batch_size, num_heads, seq_len, device):
+    slopes = torch.arange(1, num_heads + 1, dtype=torch.float32, device=device)
+    alibi = slopes.unsqueeze(0).unsqueeze(2).repeat(batch_size, 1, seq_len)
+    return alibi
