@@ -24,13 +24,18 @@ def calculate_chunks(num_layers, model_size_gb, available_memory_gb):
     chunks = max(3, (num_layers + layers_per_chunk - 1) // layers_per_chunk)  # Ensure at least 3 chunks
     return chunks
 
+def split_and_save_model(model, num_chunks=None, directory="./model_parts", model_size_gb=None, available_memory_gb=None):
+    """
+    Splits the model into parts and saves them. If num_chunks is provided, it overrides calculated values.
 
-def split_and_save_model(model, num_chunks, directory="./model_parts"):
-    print("Spliting the model into parts and save....")
+    :param model: The PyTorch model to split and save.
+    :param num_chunks: (Optional) Number of chunks to split the model into. If None, calculated based on memory.
+    :param directory: Directory to save model parts.
+    :param model_size_gb: (Optional) Total size of the model in GB for memory calculation. Ignored if num_chunks is provided.
+    :param available_memory_gb: (Optional) Available memory in GB for memory calculation. Ignored if num_chunks is provided.
+    """
+    print("Splitting the model into parts and saving...")
 
-    import os
-    import torch
-    
     os.makedirs(directory, exist_ok=True)
 
     # Generalized layer selection logic
@@ -42,10 +47,19 @@ def split_and_save_model(model, num_chunks, directory="./model_parts"):
         raise AttributeError("Cannot determine the layers for splitting the model.")
 
     num_layers = len(layers)
-    print("num_layers: ",num_layers)
+    print(f"Number of layers: {num_layers}")
+
+    # Use hard-coded num_chunks if provided, otherwise calculate dynamically
+    if num_chunks is None:
+        if model_size_gb is None or available_memory_gb is None:
+            raise ValueError("model_size_gb and available_memory_gb must be provided to calculate chunks.")
+        num_chunks = calculate_chunks(num_layers, model_size_gb, available_memory_gb)
+        print(f"Calculated chunks: {num_chunks}")
+    else:
+        print(f"Using hard-coded chunks: {num_chunks}")
 
     layers_per_chunk = (num_layers + num_chunks - 1) // num_chunks  # Round up
-    print("layers_per_chunk: ",layers_per_chunk)
+    print(f"Layers per chunk: {layers_per_chunk}")
 
     # Split and save chunks
     for i in range(0, num_layers, layers_per_chunk):
@@ -54,6 +68,7 @@ def split_and_save_model(model, num_chunks, directory="./model_parts"):
         print(f"Saved part {i // layers_per_chunk}")
 
     print("\nModel parts saved successfully!")
+
 
 
 def load_model_part(file_path, model_part, device):

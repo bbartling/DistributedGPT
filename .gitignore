@@ -7,6 +7,8 @@ __pycache__/
 *.so
 
 model_parts/
+*.pt
+model_parts/*.pt
 
 # Distribution / packaging
 .Python
