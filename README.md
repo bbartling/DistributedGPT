@@ -94,9 +94,53 @@ Model loaded successfully!
   * Try again in the future! When splitting up the model I need research more about the deep learning architecture especially internal workings of the Python transformer library in how deep learning models are defined.
   
 - [x] **Test on on a fine tuned model - `ericzzz--falcon-rw-1b-instruct-openorca`**
-  * Falcon models appear to be easier to work with Vs Llama
-  * Good results on running inference on a split up model. Runs relitively quick not on GPU.
   * https://huggingface.co/ericzzz/falcon-rw-1b-instruct-openorca
+
+  ```python
+  # Define system message and structured prompt
+  SYSTEM_MESSAGE = "You are a helpful assistant with expertise in HVAC systems."
+  INSTRUCTION = "Explain in detail what an air handling unit does in large commercial buildings..."
+  INPUT_TEXT = f"<SYS> {SYSTEM_MESSAGE} <INST> {INSTRUCTION} <RESP> "
+  ```
+  * Total Inference Time: 80.889s
+
+  Details per chunk:
+
+  ```powershell
+  --- Metrics ---
+  Chunk 0 - Time: 1.162s, Memory Used: 1670.56MB
+      Layer 0 Time: 0.021s
+      Layer 1 Time: 0.017s
+      Layer 2 Time: 0.017s
+      Layer 3 Time: 0.018s
+      Layer 4 Time: 0.016s
+      Layer 5 Time: 0.017s
+      Layer 6 Time: 0.017s
+      Layer 7 Time: 0.018s
+  Chunk 1 - Time: 0.665s, Memory Used: -29.34MB
+      Layer 0 Time: 0.020s
+      Layer 1 Time: 0.018s
+      Layer 2 Time: 0.018s
+      Layer 3 Time: 0.016s
+      Layer 4 Time: 0.016s
+      Layer 5 Time: 0.014s
+      Layer 6 Time: 0.015s
+      Layer 7 Time: 0.014s
+  Chunk 2 - Time: 0.796s, Memory Used: 445.60MB
+  ```
+  Inference results:
+  ```powershell
+  1. Air circulation: The air handling unit's primary function is to distribute and circulate air throughout the building. This is achieved by controlling the airflow, which ensures that the air is evenly distributed throughout the space.
+
+  2. Temperature and humidity control: The air handling unit also controls the temperature and humidity levels within the space. By regulating the temperature, you can maintain a comfortable indoor temperature that is suitable for the comfort of occupants. Similarly, by controlling the humidity levels, you can prevent the growth of mold and other contaminants, which can be detrimental to the health of building occupants.
+
+  3. Energy efficiency: Many air handling units are designed to be energy-efficient, which means they consume less energy than traditional systems. This helps to reduce the building's overall operating costs and contributes to a more sustainable environment.
+
+  4. Occupant comfort: The air handling unit's primary purpose is to maintain a comfortable indoor environment for the building's occupants. This includes ensuring that the temperature and humidity levels are consistent, providing a consistent level of comfort for everyone in the building.
+
+  In summary, the air handling unit in large commercial buildings is an essential component that plays a crucial role in maintaining the well-being of building occupants while ensuring efficient and effective air circulation and temperature control.
+  ```
+  * Conclusion: Hey that is not that bad! 👍😊👌💪 80 seconds is a little slow but good enough for not even a GPU and no lag on my computer while I do other tasks. 🎯🙌😎
 
 - [ ] **Test on on a fine tuned model - `tiiuae/falcon-7b-instruct`**
   * https://huggingface.co/tiiuae/falcon-7b-instruct

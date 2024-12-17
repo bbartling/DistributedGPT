@@ -22,6 +22,7 @@ split_and_save_model(model.state_dict(), FALCON_1B_HARDCODED_NUM_CHUNKS, directo
 
 # cleanup memory
 gc.collect()
+print("Falcon 1B model done and garbage collector ran success...")
 
 
 FALCON_7B_CACHE_DIRECTORY = r"C:\Users\ben\.cache\huggingface\hub\models--tiiuae--falcon-7b-instruct\snapshots\8782b5c5d8c9290412416618f36a133653e85285"
