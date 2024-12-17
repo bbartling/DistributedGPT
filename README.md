@@ -28,7 +28,8 @@ This is a hobby project aimed at learning and experimentation. The primary goal 
    ```powershell
    $env:HUGGINGFACE_API_KEY = "your_huggingface_api_key"
    ```
-## Download models from Hugging Face
+
+## Download a model from Huggingface
 
 Use the `downloader.py` and modify as necessary to grab a model from Huggingface. Models on my PC are cached in this location `C:\Users\ben\.cache\huggingface\hub` and I can use PowerShell to see how big they are in gigabytes.
 This data is used as a setting another Py file that divides up the model into different parts. Do a change directory or a `Set-Location` as shown below:
@@ -58,7 +59,7 @@ Model: models--meta-llama--Llama-3.1-8B, Size: 14.97 GB
 Model: models--meta-llama--Llama-3.2-1B, Size: 2.31 GB
 ```
 
-## Remove a model with PowerShell
+Remove a model with PowerShell:
 
 ```powershell
 Remove-Item -Recurse -Force "models--meta-llama--Llama-3.2-1B"
@@ -66,40 +67,12 @@ Remove-Item -Recurse -Force "models--meta-llama--Llama-3.2-1B"
 
 ## Splitting up the model 
 
-With a text editor in `split_up_model.py` hard code in your model cache location and size:
+This Python file splits up the model into a hard coded defined number of files. With a text editor in `split_up_model.py` hard code in your model cache location and size:
 ```python
-# Define cache directory
-CACHE_DIRECTORY = r"C:\Users\ben\.cache\huggingface\hub\models--meta-llama--Llama-3.2-1B\snapshots\4e20de362430cd3b72f300e6b0f18e50e7166e08"
-MODEL_SIZE_GIGS = 2.31  # Model size in GB (from PowerShell output)
+FALCON_7B_CACHE_DIRECTORY = r"C:\Users\ben\.cache\huggingface\hub\models--tiiuae--falcon-7b-instruct\snapshots\8782b5c5d8c9290412416618f36a133653e85285"
+FALCON_7B_MODEL_PARTS_DIR = "./7_b_model_parts"
+FALCON_7B_HARDCODED_NUM_CHUNKS = 8  # Example hard-coded value
 ```
-
-Then run `split_up_model.py`:
-
-```powershell
-> python .\split_up_model.py
-Tokenizer loaded successfully!
-Model loaded successfully!
-
-Model Configuration:
-- Number of transformer layers: 16
-- Hidden size: 2048
-- Vocabulary size: 128256
-
-Available Memory: 21.05 GB
-
-Model will be split into 3 chunks.
-Saved part 0
-Saved part 1
-Saved part 2
-
-Model parts saved successfully!
-```
-
-The script is designed to efficiently handle large models by providing detailed information and optimizing their usage in constrained environments. It begins by printing the model's configuration details, including the number of transformer layers, hidden size, and vocabulary size, to give a clear understanding of the model's architecture. Next, it calculates the available memory in gigabytes using the `psutil` library, enabling the script to estimate how much of the model can fit into memory at any given time.
-
-To manage large models, the `calculate_chunks` function divides the model into at least three parts, with more parts created if the model size exceeds available memory. This calculation takes into account the total number of transformer layers (`num_layers`), the model size in gigabytes (`MODEL_SIZE_GIGS`), and the available system memory (`available_memory_gb`). Each chunk contains a subset of the model's layers, with the chunk sizes optimized for memory efficiency.
-
-Finally, the `split_and_save_model` function splits the model layers into these calculated chunks and saves each chunk as a separate file in a specified directory (default: `./model_parts`). This process ensures that the model can be loaded incrementally or distributed across systems with limited memory, facilitating efficient inference or fine-tuning workflows.
 
 ## Run an inference test
 
@@ -116,17 +89,19 @@ Model loaded successfully!
 - [x] **Test on GPT2**  
   *Works, but it’s GPT2!*
   
-- [x] **Test on Llama-3.2-1B**  
+- [x] **Test on Llama-3.1-8B and Llama-3.2-1B**  
   *Errors trying to use Llama models.*
+  * Try again in the future! When splitting up the model I need research more about the deep learning architecture especially internal workings of the Python transformer library in how deep learning models are defined.
   
-- [x] **Test on Llama-3.1-8B**  
-  *Errors trying to use Llama models.*
-  
-- [x] **Test on `tiiuae/falcon-7b`**  
-  *Works, but inference results are odd and the computer is very laggy. Planning to try the instruct version for better memory handling.*
-  *Try the fine tuned instruct version and research a prompt template to use to be built into the `run_an_inf_tester.py`.*
+- [x] **Test on on a fine tuned model - `ericzzz--falcon-rw-1b-instruct-openorca`**
+  * Falcon models appear to be easier to work with Vs Llama
+  * Good results on running inference on a split up model. Runs relitively quick not on GPU.
+  * https://huggingface.co/ericzzz/falcon-rw-1b-instruct-openorca
 
-- [ ] **Test on `tiiuae/falcon-7b-instruct`**
+- [ ] **Test on on a fine tuned model - `tiiuae/falcon-7b-instruct`**
+  * https://huggingface.co/tiiuae/falcon-7b-instruct
+
+- [ ] **Test on largest Falcon model???**
 
 - [ ] **Test with a GPU that supports CUDA!**
 

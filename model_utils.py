@@ -1,6 +1,7 @@
 import os
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
+import gc
 
 
 def load_tokenizer_from_cache(directory):
@@ -16,60 +17,43 @@ def load_model_from_cache(directory):
         raise FileNotFoundError(f"The directory '{directory}' does not exist.")
     return AutoModelForCausalLM.from_pretrained(directory)
 
-
-def calculate_chunks(num_layers, model_size_gb, available_memory_gb):
-    """Calculate number of chunks based on available memory."""
-    memory_per_layer_gb = model_size_gb / num_layers
-    layers_per_chunk = max(1, int(available_memory_gb / memory_per_layer_gb))
-    chunks = max(3, (num_layers + layers_per_chunk - 1) // layers_per_chunk)  # Ensure at least 3 chunks
-    return chunks
-
-def split_and_save_model(model, num_chunks=None, directory="./model_parts", model_size_gb=None, available_memory_gb=None):
+def split_and_save_model(state_dict, num_chunks, directory="./model_parts"):
     """
-    Splits the model into parts and saves them. If num_chunks is provided, it overrides calculated values.
+    Splits a PyTorch model's state_dict into predefined chunks without loading the full model into memory.
 
-    :param model: The PyTorch model to split and save.
-    :param num_chunks: (Optional) Number of chunks to split the model into. If None, calculated based on memory.
+    :param state_dict: The state_dict of the loaded PyTorch model.
+    :param num_chunks: Number of chunks to split the model into.
     :param directory: Directory to save model parts.
-    :param model_size_gb: (Optional) Total size of the model in GB for memory calculation. Ignored if num_chunks is provided.
-    :param available_memory_gb: (Optional) Available memory in GB for memory calculation. Ignored if num_chunks is provided.
     """
     print("Splitting the model into parts and saving...")
 
+    # Create the output directory
     os.makedirs(directory, exist_ok=True)
 
-    # Generalized layer selection logic
-    if hasattr(model, "transformer") and hasattr(model.transformer, "h"):
-        layers = model.transformer.h
-    elif hasattr(model, "model") and hasattr(model.model, "layers"):
-        layers = model.model.layers
-    else:
-        raise AttributeError("Cannot determine the layers for splitting the model.")
+    state_dict_keys = list(state_dict.keys())
+    print(f"Total keys in state_dict: {len(state_dict_keys)}")
+    keys_per_chunk = (len(state_dict_keys) + num_chunks - 1) // num_chunks  # Round up
+    print(f"Keys per chunk: {keys_per_chunk}")
 
-    num_layers = len(layers)
-    print(f"Number of layers: {num_layers}")
+    # Split the state_dict into chunks and save them
+    for i in range(0, len(state_dict_keys), keys_per_chunk):
+        chunk_keys = state_dict_keys[i:i + keys_per_chunk]
+        chunk_state_dict = {key: state_dict[key] for key in chunk_keys}
 
-    # Use hard-coded num_chunks if provided, otherwise calculate dynamically
-    if num_chunks is None:
-        if model_size_gb is None or available_memory_gb is None:
-            raise ValueError("model_size_gb and available_memory_gb must be provided to calculate chunks.")
-        num_chunks = calculate_chunks(num_layers, model_size_gb, available_memory_gb)
-        print(f"Calculated chunks: {num_chunks}")
-    else:
-        print(f"Using hard-coded chunks: {num_chunks}")
+        # Save the chunk's state_dict
+        chunk_path = os.path.join(directory, f"rank_{i // keys_per_chunk}.pt")
+        torch.save(chunk_state_dict, chunk_path)
+        print(f"Saved chunk {i // keys_per_chunk} with {len(chunk_keys)} keys.")
 
-    layers_per_chunk = (num_layers + num_chunks - 1) // num_chunks  # Round up
-    print(f"Layers per chunk: {layers_per_chunk}")
+        # Clean up
+        del chunk_state_dict
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
-    # Split and save chunks
-    for i in range(0, num_layers, layers_per_chunk):
-        part = torch.nn.ModuleList(layers[i:i + layers_per_chunk])
-        torch.save(part.state_dict(), os.path.join(directory, f"rank{i // layers_per_chunk}.pt"))
-        print(f"Saved part {i // layers_per_chunk}")
+        print(f"Chunk {i} deleted from memory and garbage collected success.")
 
     print("\nModel parts saved successfully!")
-
-
 
 def load_model_part(file_path, model_part, device):
     """Load a specific model part from saved chunks."""

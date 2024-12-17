@@ -10,6 +10,13 @@ model_parts/
 *.pt
 model_parts/*.pt
 
+1_b_model_parts/
+7_b_model_parts/
+
+1_b_model_parts/*.pt
+7_b_model_parts/*.pt
+
+
 # Distribution / packaging
 .Python
 build/

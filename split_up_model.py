@@ -1,57 +1,45 @@
-import psutil
-from model_utils import load_tokenizer_from_cache, load_model_from_cache, calculate_chunks, split_and_save_model
+from model_utils import load_tokenizer_from_cache, load_model_from_cache, split_and_save_model
+import gc
 
-# Define cache directory
-CACHE_DIRECTORY = r"C:\Users\ben\.cache\huggingface\hub\models--ericzzz--falcon-rw-1b-instruct-openorca\snapshots\29cc70a0af3ac4826702ec46667931c0b0af340b"
-MODEL_SIZE_GIGS = 13.45  # Not needed is passing in HARDCODED_NUM_CHUNKS value comes from PowerShell output
-HARDCODED_NUM_CHUNKS = 3  # Example hard-coded value
+# Define cache directory and model parameters
+FALCON_1B_CACHE_DIRECTORY = r"C:\Users\ben\.cache\huggingface\hub\models--ericzzz--falcon-rw-1b-instruct-openorca\snapshots\29cc70a0af3ac4826702ec46667931c0b0af340b"
+FALCON_1B_MODEL_PARTS_DIR = "./1_b_model_parts"
+FALCON_1B_HARDCODED_NUM_CHUNKS = 3
 
-# Load tokenizer and model
-tokenizer = load_tokenizer_from_cache(CACHE_DIRECTORY)
+# Load tokenizer and model metadata
+print("Loading tokenizer...")
+tokenizer = load_tokenizer_from_cache(FALCON_1B_CACHE_DIRECTORY)
 print("Tokenizer loaded successfully!")
 
-model = load_model_from_cache(CACHE_DIRECTORY)
-print("Model loaded successfully!")
+print("Loading model metadata...")
+print(f"Loading model from {FALCON_1B_CACHE_DIRECTORY}...")
+model = load_model_from_cache(FALCON_1B_CACHE_DIRECTORY)
+print("Model metadata loaded successfully!")
 
-# Determine model architecture
-if hasattr(model, "transformer") and hasattr(model.transformer, "h"):
-    layers = model.transformer.h
-elif hasattr(model, "model") and hasattr(model.model, "layers"):
-    layers = model.model.layers
-else:
-    raise AttributeError("Cannot determine the layers for splitting the model.")
+# Use hardcoded number of chunks
+print(f"Splitting model into {FALCON_1B_HARDCODED_NUM_CHUNKS} chunks...")
+split_and_save_model(model.state_dict(), FALCON_1B_HARDCODED_NUM_CHUNKS, directory=FALCON_1B_MODEL_PARTS_DIR)
+
+# cleanup memory
+gc.collect()
 
 
-# Use a hard-coded value for num_chunks or calculate dynamically
-split_and_save_model(
-    model,
-    num_chunks=HARDCODED_NUM_CHUNKS,  # Overrides memory calculation
-    directory="./model_parts"
-)
+FALCON_7B_CACHE_DIRECTORY = r"C:\Users\ben\.cache\huggingface\hub\models--tiiuae--falcon-7b-instruct\snapshots\8782b5c5d8c9290412416618f36a133653e85285"
+FALCON_7B_MODEL_PARTS_DIR = "./7_b_model_parts"
+FALCON_7B_HARDCODED_NUM_CHUNKS = 8  # Example hard-coded value
 
-"""
-Example of splitting up model based on memory
+# Load tokenizer and model metadata
+print("Loading tokenizer...")
+tokenizer = load_tokenizer_from_cache(FALCON_7B_CACHE_DIRECTORY)
+print("Tokenizer loaded successfully!")
 
-# Calculate number of layers
-num_layers = len(layers)
-print(f"\nModel Configuration:")
-print(f"- Number of transformer layers: {num_layers}")
-print(f"- Hidden size: {model.config.hidden_size}")
-print(f"- Vocabulary size: {model.config.vocab_size}")
+print("Loading model metadata...")
+print(f"Loading model from {FALCON_7B_CACHE_DIRECTORY}...")
+model = load_model_from_cache(FALCON_7B_CACHE_DIRECTORY)
+print("Model metadata loaded successfully!")
 
-# Calculate available memory
-available_memory_gb = psutil.virtual_memory().available / (1024**3)
-print(f"\nAvailable Memory: {available_memory_gb:.2f} GB")
+# Use hardcoded number of chunks
+print(f"Splitting model into {FALCON_7B_HARDCODED_NUM_CHUNKS} chunks...")
+split_and_save_model(model.state_dict(), FALCON_7B_HARDCODED_NUM_CHUNKS, directory=FALCON_7B_MODEL_PARTS_DIR)
 
-# Calculate number of chunks
-num_chunks = calculate_chunks(num_layers, MODEL_SIZE_GIGS, available_memory_gb)
-print(f"\nModel will be split into {num_chunks} chunks.")
 
-split_and_save_model(
-    model,
-    num_chunks=None,  # Allows dynamic calculation
-    model_size_gb=MODEL_SIZE_GIGS,
-    available_memory_gb=available_memory_gb,
-    directory="./model_parts"
-)
-"""

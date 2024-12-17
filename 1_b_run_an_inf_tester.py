@@ -12,7 +12,7 @@ INPUT_TEXT = f"<SYS> {SYSTEM_MESSAGE} <INST> {INSTRUCTION} <RESP> "
 MAX_NEW_TOKENS = 150
 TEMPERATURE = 0.6
 CACHE_DIRECTORY = r"C:\Users\ben\.cache\huggingface\hub\models--ericzzz--falcon-rw-1b-instruct-openorca\snapshots\29cc70a0af3ac4826702ec46667931c0b0af340b"
-MODEL_PARTS_DIR = "./model_parts"
+MODEL_PARTS_DIR = "./1_b_model_parts"
 
 # Load tokenizer
 print("Loading tokenizer...")
