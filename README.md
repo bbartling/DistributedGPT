@@ -102,7 +102,7 @@ Model loaded successfully!
   INSTRUCTION = "Explain in detail what an air handling unit does in large commercial buildings..."
   INPUT_TEXT = f"<SYS> {SYSTEM_MESSAGE} <INST> {INSTRUCTION} <RESP> "
   ```
-  * Total Inference Time: 80.889s
+  * Total Inference Time (seconds): 80.889s
 
   Details per chunk:
 
@@ -144,6 +144,86 @@ Model loaded successfully!
 
 - [ ] **Test on on a fine tuned model - `tiiuae/falcon-7b-instruct`**
   * https://huggingface.co/tiiuae/falcon-7b-instruct
+  * Its a different prompt template as compared to the 1b Falcon.
+
+  ```python
+  # Define system message and structured prompt
+  SYSTEM_MESSAGE = (
+      "Answer the question as truthfully as possible using the provided text, "
+      "and if the answer is not contained within the text below, respond with \"I can't answer that\""
+  )
+
+  INSTRUCTION_TEMPLATE = (
+      ">>CONTEXT<<\n{context}\n\n>>QUESTION<< {question}\n>>ANSWER<< "
+  )
+
+  # Example Context and Question
+  CONTEXT = (
+      "An air handling unit (AHU) is a device used to regulate and circulate air as part of a heating, ventilating, "
+      "and air-conditioning (HVAC) system. AHUs typically consist of a blower, heating or cooling elements, "
+      "filter racks or chambers, sound attenuators, and dampers. AHUs are connected to ductwork that distributes "
+      "the conditioned air through the building and returns it to the AHU."
+  )
+  QUESTION = "What does an air handling unit do in large commercial buildings?"
+  ```
+  * Total Inference Time (HH:MM:SS): 00:03:18
+
+  Details per chunk:
+  ```powershell
+  --- Metrics ---
+  Chunk 0 - Time: 17.246s, Memory Used: 2246.93MB
+      Layer 0 Time: 0.484s
+      Layer 1 Time: 0.125s
+      Layer 2 Time: 0.094s
+      Layer 3 Time: 0.156s
+  Chunk 1 - Time: 13.450s, Memory Used: 3033.05MB
+      Layer 0 Time: 1.343s
+      Layer 1 Time: 1.203s
+      Layer 2 Time: 1.265s
+      Layer 3 Time: 1.203s
+  Chunk 2 - Time: 16.013s, Memory Used: 3179.02MB
+      Layer 0 Time: 1.265s
+      Layer 1 Time: 1.390s
+      Layer 2 Time: 2.610s
+      Layer 3 Time: 2.593s
+  Chunk 3 - Time: 15.655s, Memory Used: 2680.00MB
+      Layer 0 Time: 1.937s
+      Layer 1 Time: 1.344s
+      Layer 2 Time: 1.343s
+      Layer 3 Time: 2.125s
+  Chunk 4 - Time: 16.310s, Memory Used: 3123.74MB
+      Layer 0 Time: 2.593s
+      Layer 1 Time: 2.218s
+      Layer 2 Time: 1.390s
+      Layer 3 Time: 1.187s
+  Chunk 5 - Time: 13.045s, Memory Used: 3145.56MB
+      Layer 0 Time: 2.171s
+      Layer 1 Time: 1.110s
+      Layer 2 Time: 1.031s
+      Layer 3 Time: 0.516s
+  Chunk 6 - Time: 12.076s, Memory Used: 3011.24MB
+      Layer 0 Time: 1.953s
+      Layer 1 Time: 0.500s
+      Layer 2 Time: 0.547s
+      Layer 3 Time: 0.812s
+  Chunk 7 - Time: 16.169s, Memory Used: 2209.52MB
+      Layer 0 Time: 2.296s
+      Layer 1 Time: 1.781s
+      Layer 2 Time: 1.843s
+      Layer 3 Time: 0.890s
+  Total Inference Time: 198.674s
+  ```
+  Inference results:
+  ```powershell
+  An air handling unit (AHU) is a device used to regulate and circulate air as part of a heating, ventilating, and air-conditioning (HVAC) system. AHUs typically consist of a blower, heating or cooling elements, filter racks or chambers, sound attenuators, and dampers. AHUs are connected to ductwork that distributes the conditioned air through the building and returns it to the AHU.
+
+  What does an air handling unit do in large commercial buildings?
+  1. An air handling unit (AHU) is a device used to regulate and circulate air as part of an HVAC system.
+  2. It is typically used to cool and heat air in large commercial buildings.
+  3. AHUs are connected to ductwork that distributes the conditioned air through the building and returns it to the AHU.
+  ```
+
+  * Conclusion: Hey that is not that bad! I think its getting better?
 
 - [ ] **Test on largest Falcon model???**
 
