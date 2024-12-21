@@ -4,27 +4,25 @@ from model_utils import load_model_part, load_tokenizer_from_cache, load_model_f
 import gc
 import time
 
-
 # Metrics Storage
 metrics = {"chunks": []}
 
 # Define system message and structured prompt
-SYSTEM_MESSAGE = "You are a helpful assistant with expertise in HVAC systems."
-INSTRUCTION = "Explain in detail what an air handling unit does in large commercial buildings..."
+SYSTEM_MESSAGE = "You are a helpful assistant with expertise in HVAC systems, building automation, smart building IoT, and optimization."
+INSTRUCTION = "I have an variable air volumne (VAV) air handling unit (AHU) with a VAV reheat system and air cooled chiller. Please come up with an algorithm in pseudo code I can implement to optimize the AHU leaving duct static pressure and temperature setpoint based off of the zone data of VAV box damper positions and zone air temperatures."
 INPUT_TEXT = f"<SYS> {SYSTEM_MESSAGE} <INST> {INSTRUCTION} <RESP> "
 
 # Parameters
-# Set the default desired MAX_NEW_TOKENS
 DEFAULT_MAX_NEW_TOKENS = 300
 TEMPERATURE = 0.6
-CACHE_DIRECTORY = r"C:\Users\ben\.cache\huggingface\hub\models--ericzzz--falcon-rw-1b-instruct-openorca\snapshots\29cc70a0af3ac4826702ec46667931c0b0af340b"
+CACHE_DIRECTORY = r"C:\\Users\\ben\\.cache\\huggingface\\hub\\models--ericzzz--falcon-rw-1b-instruct-openorca\\snapshots\\29cc70a0af3ac4826702ec46667931c0b0af340b"
 MODEL_PARTS_DIR = "./1_b_model_parts"
 
 print("Model Parts Directory Content:")
 for f in os.listdir(MODEL_PARTS_DIR):
     print(f)
 
-# Load tokenizer
+# Load tokenizer and model
 tokenizer = load_tokenizer_from_cache(CACHE_DIRECTORY)
 model = load_model_from_cache(CACHE_DIRECTORY)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -88,19 +86,36 @@ with torch.no_grad():
         gc.collect()
         torch.cuda.empty_cache()
 
-# Final logits and text generation
-hidden_states = model.transformer.ln_f(hidden_states)
-logits = model.lm_head(hidden_states)
-model.to(device)
-output_ids = model.generate(
-    input_ids, max_length=MAX_NEW_TOKENS + seq_len, temperature=TEMPERATURE, 
-    do_sample=True, pad_token_id=tokenizer.eos_token_id
-)
-generated_output = tokenizer.decode(output_ids[0], skip_special_tokens=True)
+# Iterative generation in chunks
+MAX_ITERS = 10  # Max continuation attempts
+continuation_signal = False  # Flag for detecting when to stop
+current_input = INPUT_TEXT
+full_output = ""
+
+for _ in range(MAX_ITERS):
+    input_ids = tokenizer(current_input, return_tensors="pt").input_ids.to(device)
+    output_ids = model.generate(
+        input_ids,
+        max_length=MAX_NEW_TOKENS + input_ids.size(1),
+        temperature=TEMPERATURE,
+        do_sample=True,
+        pad_token_id=tokenizer.eos_token_id,
+    )
+    output_text = tokenizer.decode(output_ids[0], skip_special_tokens=True)
+    full_output += output_text
+    current_input += output_text  # Add generated text to the next input
+
+    # Check if the response is complete (ends with punctuation or stop tokens)
+    if output_text.strip().endswith(('.', '?', '!', '<|endoftext|>')):
+        continuation_signal = True
+        break
+
+if not continuation_signal:
+    print("The output may still be incomplete.")
+print("\nGenerated Output:", full_output)
 
 # Final time
 metrics["total_time"] = time.time() - total_time
-print("\nGenerated text:", generated_output)
 print("\n--- Metrics ---")
 for chunk in metrics["chunks"]:
     print(f"Chunk {chunk['chunk']} - Time: {chunk['chunk_time']:.3f}s, Memory Used: {chunk['memory_used_mb']:.2f}MB")

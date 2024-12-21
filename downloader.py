@@ -20,8 +20,8 @@ except Exception as e:
 #model = AutoModelForCausalLM.from_pretrained("ericzzz/falcon-rw-1b-instruct-openorca")  tiiuae/falcon-40b
 
 #tokenizer = AutoTokenizer.from_pretrained("tiiuae/falcon-7b-instruct")
-#model = AutoModelForCausalLM.from_pretrained("tiiuae/falcon-7b-instruct")
+#model = AutoModelForCausalLM.from_pretrained("tiiuae/falcon-7b-instruct") 
 
-
-tokenizer = AutoTokenizer.from_pretrained("TheBloke/falcon-40b-instruct-GPTQ")
-model = AutoModelForCausalLM.from_pretrained("TheBloke/falcon-40b-instruct-GPTQ")
+# Adjusting the code to trust remote code
+tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-0.5B-Instruct")
+model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen2.5-0.5B-Instruct",trust_remote_code=True) 
