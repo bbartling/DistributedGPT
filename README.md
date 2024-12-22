@@ -94,7 +94,7 @@ Model loaded successfully!
   * Try again in the future! When splitting up the model I need research more about the deep learning architecture especially internal workings of the Python transformer library in how deep learning models are defined.
 
 <details>
-  <summary>**Test on on a fine tuned model - `ericzzz--falcon-rw-1b-instruct-openorca`**</summary>
+  <summary>Test on on a fine tuned model - ericzzz--falcon-rw-1b-instruct-openorca</summary>
 
   * https://huggingface.co/ericzzz/falcon-rw-1b-instruct-openorca
 
@@ -147,7 +147,7 @@ In summary, the air handling unit in large commercial buildings is an essential 
 </details>
 
 <details>
-  <summary>**Test on on a fine tuned model - `tiiuae/falcon-7b-instruct`**</summary>
+  <summary>Test on on a fine tuned model - tiiuae/falcon-7b-instruct</summary>
 
   * https://huggingface.co/tiiuae/falcon-7b-instruct
   * Notice its a different prompt template as compared to the 1b Falcon. This was found out by trial and error ☹️😒 but we got it working! 👍😊👌💪
