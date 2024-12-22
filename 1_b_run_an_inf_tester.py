@@ -1,6 +1,13 @@
 import os
 import torch
-from model_utils import load_model_part, load_tokenizer_from_cache, load_model_from_cache, build_alibi, get_memory_usage, calculate_max_new_tokens
+from model_utils import (
+    load_model_part,
+    load_tokenizer_from_cache,
+    load_model_from_cache,
+    build_alibi,
+    get_memory_usage,
+    calculate_max_new_tokens,
+)
 import gc
 import time
 
@@ -9,16 +16,33 @@ metrics = {"chunks": []}
 
 # Define system message and structured prompt
 SYSTEM_MESSAGE = "You are a helpful assistant with expertise in HVAC systems, building automation, smart building IoT, and optimization."
-INSTRUCTION = "I have an variable air volumne (VAV) air handling unit (AHU) with a VAV reheat system and air cooled chiller. Please come up with an algorithm in pseudo code I can implement to optimize the AHU leaving duct static pressure and temperature setpoint based off of the zone data of VAV box damper positions and zone air temperatures."
-INPUT_TEXT = f"<SYS> {SYSTEM_MESSAGE} <INST> {INSTRUCTION} <RESP> "
+INSTRUCTION = (
+    "I have a variable air volume (VAV) air handling unit (AHU) with a VAV reheat system and air-cooled chiller. "
+    "Please come up with an algorithm in pseudo code I can implement to optimize the AHU leaving duct static pressure "
+    "and temperature setpoint based on the zone data of VAV box damper positions and zone air temperatures."
+)
+EXAMPLES = """
+Example 1:
+def optimize_pressure_and_temp(data):
+    static_pressure = calculate_static_pressure(data)
+    temperature_setpoint = adjust_temperature(data)
+    return static_pressure, temperature_setpoint
+
+Example 2:
+if zone_temp > temp_threshold:
+    reduce_static_pressure()
+"""
+
+INPUT_TEXT = f"<SYS> {SYSTEM_MESSAGE} <INST> {INSTRUCTION}\n{EXAMPLES}<INST> Now, provide your pseudo-code:"
 
 # Parameters
 DEFAULT_MAX_NEW_TOKENS = 300
-TEMPERATURE = 0.3  # Lower temperature for more deterministic output
-TOP_P = 0.9  # Use top-p sampling to control randomness
+TEMPERATURE = 0.6
+TOP_P = 0.9
+REPETITION_PENALTY = 1.2
 CACHE_DIRECTORY = r"C:\\Users\\ben\\.cache\\huggingface\\hub\\models--ericzzz--falcon-rw-1b-instruct-openorca\\snapshots\\29cc70a0af3ac4826702ec46667931c0b0af340b"
 MODEL_PARTS_DIR = "./1_b_model_parts"
-MAX_CONTEXT_LENGTH = 1024  # Limit context window size
+MAX_CONTEXT_LENGTH = 1024
 
 print("Model Parts Directory Content:")
 for f in os.listdir(MODEL_PARTS_DIR):
@@ -36,7 +60,7 @@ MAX_NEW_TOKENS = calculate_max_new_tokens(
     tokenizer=tokenizer,
     model=model,
     max_new_tokens_default=DEFAULT_MAX_NEW_TOKENS,
-    device=device
+    device=device,
 )
 
 # Model info
@@ -75,61 +99,53 @@ with torch.no_grad():
 
         # Track chunk metrics
         chunk_time = time.time() - chunk_start_time
-        end_memory = get_memory_usage()
-        metrics["chunks"].append({
-            "chunk": i,
-            "chunk_time": chunk_time,
-            "memory_used_mb": end_memory - start_memory,
-            "layer_times": layer_times
-        })
+        #end_memory = get_memory_usage()
+        metrics["chunks"].append(
+            {
+                "chunk": i,
+                "chunk_time": chunk_time,
+                "memory_used_mb": end_memory - start_memory,
+                "layer_times": layer_times,
+            }
+        )
 
         # Clean up
         del part
         gc.collect()
         torch.cuda.empty_cache()
 
-# Iterative generation in chunks
-MAX_ITERS = 10  # Max continuation attempts
-continuation_signal = False  # Flag for detecting when to stop
+MAX_ITERS = 2
+continuation_signal = False  # Flag to detect when to stop
 current_input = INPUT_TEXT
 full_output = ""
 
-for iteration in range(MAX_ITERS):
+for _ in range(MAX_ITERS):
     input_ids = tokenizer(current_input, return_tensors="pt").input_ids.to(device)
-
-    # Truncate context if input exceeds max context length
-    if input_ids.size(1) > MAX_CONTEXT_LENGTH:
-        input_ids = input_ids[:, -MAX_CONTEXT_LENGTH:]
-        current_input = tokenizer.decode(input_ids[0], skip_special_tokens=True)
-
-    print(f"\n[Iteration {iteration + 1}] Input to Model:\n{current_input}")
-
-    # Generate output
     output_ids = model.generate(
         input_ids,
         max_length=MAX_NEW_TOKENS + input_ids.size(1),
         temperature=TEMPERATURE,
         top_p=TOP_P,
-        do_sample=True,
+        repetition_penalty=REPETITION_PENALTY,
         pad_token_id=tokenizer.eos_token_id,
+        do_sample=True,
     )
     output_text = tokenizer.decode(output_ids[0], skip_special_tokens=True)
-    print(f"\n[Iteration {iteration + 1}] Model Output:\n{output_text}")
-
+    
+    # Combine unique results and refine input
     full_output += output_text
-    current_input += output_text  # Add generated text to the next input
-
-    # Add a continuation query to guide the model
-    current_input += "\nDoes the output above address the prompt completely? If not, please continue.\n"
-
-    # Check if the response is complete (ends with punctuation or stop tokens)
+    current_input += " Refine and improve the output above logically. Avoid repetition."
+    
+    # Stop if meaningful completion detected
     if output_text.strip().endswith(('.', '?', '!', '<|endoftext|>')):
         continuation_signal = True
         break
 
 if not continuation_signal:
     print("The output may still be incomplete.")
+
 print("\nGenerated Output:", full_output)
+
 
 # Final time
 metrics["total_time"] = time.time() - total_time

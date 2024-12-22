@@ -14,31 +14,36 @@ import time
 # Metrics Storage
 metrics = {"chunks": []}
 
-# Define system message and structured prompt
-SYSTEM_MESSAGE = (
-    "Answer the question as truthfully as possible using the provided text, "
-    "and if the answer is not contained within the text below, respond with \"I can't answer that\""
+# Define prompt details
+SYSTEM_MESSAGE = "You are a helpful assistant with expertise in HVAC systems, building automation, smart building IoT, and optimization."
+QUESTION = (
+    "I have a variable air volume (VAV) air handling unit (AHU) with a VAV reheat system and air-cooled chiller. "
+    "Please come up with an algorithm in pseudo code I can implement to optimize the AHU leaving duct static pressure "
+    "and temperature setpoint based on the zone data of VAV box damper positions and zone air temperatures."
 )
+EXAMPLES = """
+Example 1:
+def optimize_pressure_and_temp(data):
+    static_pressure = calculate_static_pressure(data)
+    temperature_setpoint = adjust_temperature(data)
+    return static_pressure, temperature_setpoint
 
+Example 2:
+if zone_temp > temp_threshold:
+    reduce_static_pressure()
+"""
 INSTRUCTION_TEMPLATE = (
     ">>CONTEXT<<\n{context}\n\n>>QUESTION<< {question}\n>>ANSWER<< "
 )
 
-# Example Context and Question
-CONTEXT = (
-    "An air handling unit (AHU) is a device used to regulate and circulate air as part of a heating, ventilating, "
-    "and air-conditioning (HVAC) system. AHUs typically consist of a blower, heating or cooling elements, "
-    "filter racks or chambers, sound attenuators, and dampers. AHUs are connected to ductwork that distributes "
-    "the conditioned air through the building and returns it to the AHU."
-)
-QUESTION = "What does an air handling unit do in large commercial buildings?"
-
-# Assemble the Input Text
-INPUT_TEXT = INSTRUCTION_TEMPLATE.format(context=CONTEXT, question=QUESTION)
+INPUT_TEXT = INSTRUCTION_TEMPLATE.format(context=f"{SYSTEM_MESSAGE}\n{EXAMPLES}", question=QUESTION)
 
 # Parameters
 DEFAULT_MAX_NEW_TOKENS = 300
 TEMPERATURE = 0.6
+TOP_P = 0.9
+REPETITION_PENALTY = 1.2
+MAX_ITERS = 2
 
 # Paths for model and tokenizer
 FALCON_7B_CACHE_DIRECTORY = (
@@ -47,7 +52,7 @@ FALCON_7B_CACHE_DIRECTORY = (
 FALCON_7B_MODEL_PARTS_DIR = "./7_b_model_parts"
 
 print("Model Parts Directory Content:")
-for f in os.listdir(FALCON_7B_CACHE_DIRECTORY):
+for f in os.listdir(FALCON_7B_MODEL_PARTS_DIR):
     print(f)
 
 # Load tokenizer
@@ -71,69 +76,60 @@ num_layers = len(layers)
 num_chunks = len([f for f in os.listdir(FALCON_7B_MODEL_PARTS_DIR) if f.startswith("rank")])
 layers_per_chunk = (num_layers + num_chunks - 1) // num_chunks
 
-# Initialize alibi and masks
-batch_size, seq_len = input_ids.shape
-attention_mask = torch.ones((batch_size, seq_len), device=device)[:, None, None, :]
-alibi = build_alibi(batch_size, model.config.num_attention_heads, seq_len, device)
-
 # Process model sequentially
-hidden_states = model.transformer.word_embeddings(input_ids)
 total_time = time.time()
+current_input = INPUT_TEXT
+full_output = ""
+continuation_signal = False
 
-with torch.no_grad():
-    for i in range(num_chunks):
-        chunk_start_time = time.time()
-        start_memory = get_memory_usage()
+for _ in range(MAX_ITERS):
+    input_ids = tokenizer(current_input, return_tensors="pt").input_ids.to(device)
 
-        # Load model part
-        file_path = os.path.join(FALCON_7B_MODEL_PARTS_DIR, f"rank_{i}.pt")
-        part_layers = layers[i * layers_per_chunk : (i + 1) * layers_per_chunk]
-        part = load_model_part(file_path, part_layers, device)
+    with torch.no_grad():
+        hidden_states = model.transformer.word_embeddings(input_ids)
+        batch_size, seq_len = input_ids.shape
+        attention_mask = torch.ones((batch_size, seq_len), device=device)[:, None, None, :]
+        alibi = build_alibi(batch_size, model.config.num_attention_heads, seq_len, device)
 
-        # Process layers in chunk
-        layer_times = []
-        for layer_idx, layer in enumerate(part):
-            layer_start_time = time.time()
-            output = layer(hidden_states, alibi=alibi, attention_mask=attention_mask)
-            hidden_states = output[0] if isinstance(output, tuple) else output
-            layer_time = time.time() - layer_start_time
-            layer_times.append(layer_time)
+        for i in range(num_chunks):
+            file_path = os.path.join(FALCON_7B_MODEL_PARTS_DIR, f"rank_{i}.pt")
+            part_layers = layers[i * layers_per_chunk : (i + 1) * layers_per_chunk]
+            part = load_model_part(file_path, part_layers, device)
 
-        # Track chunk metrics
-        chunk_time = time.time() - chunk_start_time
-        end_memory = get_memory_usage()
-        metrics["chunks"].append({
-            "chunk": i,
-            "chunk_time": chunk_time,
-            "memory_used_mb": end_memory - start_memory,
-            "layer_times": layer_times
-        })
+            for layer in part:
+                output = layer(hidden_states, alibi=alibi, attention_mask=attention_mask)
+                hidden_states = output[0] if isinstance(output, tuple) else output
 
-        # Clean up
-        del part
-        gc.collect()
-        torch.cuda.empty_cache()
+            del part
+            gc.collect()
+            torch.cuda.empty_cache()
 
-# Final logits and text generation
-hidden_states = model.transformer.ln_f(hidden_states)
-logits = model.lm_head(hidden_states)
-model.to(device)
-output_ids = model.generate(
-    input_ids, max_length=MAX_NEW_TOKENS + seq_len, temperature=TEMPERATURE, 
-    do_sample=True, pad_token_id=tokenizer.eos_token_id
-)
-generated_output = tokenizer.decode(output_ids[0], skip_special_tokens=True)
+        hidden_states = model.transformer.ln_f(hidden_states)
+        logits = model.lm_head(hidden_states)
+        output_ids = model.generate(
+            input_ids, max_length=MAX_NEW_TOKENS + seq_len, temperature=TEMPERATURE, 
+            top_p=TOP_P, repetition_penalty=REPETITION_PENALTY,
+            do_sample=True, pad_token_id=tokenizer.eos_token_id
+        )
+        output_text = tokenizer.decode(output_ids[0], skip_special_tokens=True)
+
+    # Combine unique results and refine input
+    full_output += output_text
+    current_input += " Refine and improve the output above logically. Avoid repetition."
+
+    if output_text.strip().endswith(('.', '?', '!', '<|endoftext|>')):
+        continuation_signal = True
+        break
+
+if not continuation_signal:
+    print("The output may still be incomplete.")
 
 # Final time
 metrics["total_time"] = time.time() - total_time
-hours, remainder = divmod(metrics["total_time"], 3600)
-minutes, seconds = divmod(remainder, 60)
-
-print("\nGenerated text:", generated_output)
+print("\nGenerated Output:", full_output)
 print("\n--- Metrics ---")
 for chunk in metrics["chunks"]:
     print(f"Chunk {chunk['chunk']} - Time: {chunk['chunk_time']:.3f}s, Memory Used: {chunk['memory_used_mb']:.2f}MB")
     for idx, t in enumerate(chunk["layer_times"]):
         print(f"    Layer {idx} Time: {t:.3f}s")
 print(f"Total Inference Time: {metrics['total_time']:.3f}s")
-print(f"Total Inference Time (HH:MM:SS): {int(hours):02}:{int(minutes):02}:{int(seconds):02}")
