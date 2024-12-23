@@ -5,14 +5,11 @@ from model_utils import (
     load_tokenizer_from_cache,
     load_model_from_cache,
     build_alibi,
-    get_memory_usage,
     calculate_max_new_tokens
 )
 import gc
 import time
 
-# Metrics Storage
-metrics = {"chunks": []}
 
 # Define prompt details
 SYSTEM_MESSAGE = "You are a helpful assistant with expertise in HVAC systems, building automation, smart building IoT, and optimization."
@@ -125,11 +122,7 @@ if not continuation_signal:
     print("The output may still be incomplete.")
 
 # Final time
-metrics["total_time"] = time.time() - total_time
+time_delta = time.time() - total_time
 print("\nGenerated Output:", full_output)
 print("\n--- Metrics ---")
-for chunk in metrics["chunks"]:
-    print(f"Chunk {chunk['chunk']} - Time: {chunk['chunk_time']:.3f}s, Memory Used: {chunk['memory_used_mb']:.2f}MB")
-    for idx, t in enumerate(chunk["layer_times"]):
-        print(f"    Layer {idx} Time: {t:.3f}s")
-print(f"Total Inference Time: {metrics['total_time']:.3f}s")
+print(f"Total Inference Time: {time_delta:.3f}s")

@@ -1,57 +1,41 @@
-import os
-import torch
-from model_utils import (
-    load_model_part,
-    load_tokenizer_from_cache,
-    load_model_from_cache,
-    build_alibi,
-    get_memory_usage,
-    calculate_max_new_tokens,
-)
-import gc
 import time
+import torch
+from model_utils import load_tokenizer_from_cache, load_model_from_cache, calculate_max_new_tokens
 
-# Metrics Storage
-metrics = {"chunks": []}
-
-# Define system message and structured prompt
+# Define prompt details
 SYSTEM_MESSAGE = "You are a helpful assistant with expertise in HVAC systems, building automation, smart building IoT, and optimization."
-INSTRUCTION = (
-    "I have a variable air volume (VAV) air handling unit (AHU) with a VAV reheat system and air-cooled chiller. "
-    "Please come up with an algorithm in pseudo code I can implement to optimize the AHU leaving duct static pressure "
-    "and temperature setpoint based on the zone data of VAV box damper positions and zone air temperatures."
+QUESTION = (
+    "I have a variable air volume (VAV) air handling unit (AHU) in a commercial building with 10 VAV boxes. "
+    "Can you provide a pseudo-code algorithm to optimize the AHU leaving duct static pressure setpoint? "
+    "The algorithm should use VAV box damper positions and implement a trim-and-respond strategy to achieve the lowest possible static pressure setpoint "
+    "while maintaining an average damper position between 60% and 80% across all VAV boxes."
 )
-EXAMPLES = """
-Example 1:
-def optimize_pressure_and_temp(data):
-    static_pressure = calculate_static_pressure(data)
-    temperature_setpoint = adjust_temperature(data)
-    return static_pressure, temperature_setpoint
 
-Example 2:
-if zone_temp > temp_threshold:
-    reduce_static_pressure()
-"""
 
-INPUT_TEXT = f"<SYS> {SYSTEM_MESSAGE} <INST> {INSTRUCTION}\n{EXAMPLES}<INST> Now, provide your pseudo-code:"
+INSTRUCTION_TEMPLATE = (
+    ">>CONTEXT<<\n{context}\n\n>>QUESTION<< {question}\n>>ANSWER<< "
+)
+
+INPUT_TEXT = INSTRUCTION_TEMPLATE.format(context=f"{SYSTEM_MESSAGE}", question=QUESTION)
 
 # Parameters
 DEFAULT_MAX_NEW_TOKENS = 300
 TEMPERATURE = 0.6
 TOP_P = 0.9
-REPETITION_PENALTY = 1.2
-CACHE_DIRECTORY = r"C:\\Users\\ben\\.cache\\huggingface\\hub\\models--ericzzz--falcon-rw-1b-instruct-openorca\\snapshots\\29cc70a0af3ac4826702ec46667931c0b0af340b"
-MODEL_PARTS_DIR = "./1_b_model_parts"
-MAX_CONTEXT_LENGTH = 1024
+REPETITION_PENALTY = 2.0
 
-print("Model Parts Directory Content:")
-for f in os.listdir(MODEL_PARTS_DIR):
-    print(f)
+# Paths for model and tokenizer
+FALCON_1B_CACHE_DIRECTORY = (
+    r"C:\\Users\\ben\\.cache\\huggingface\\hub\\models--ericzzz--falcon-rw-1b-instruct-openorca\\snapshots\\29cc70a0af3ac4826702ec46667931c0b0af340b"
+)
 
 # Load tokenizer and model
-tokenizer = load_tokenizer_from_cache(CACHE_DIRECTORY)
-model = load_model_from_cache(CACHE_DIRECTORY)
+tokenizer = load_tokenizer_from_cache(FALCON_1B_CACHE_DIRECTORY)
+model = load_model_from_cache(FALCON_1B_CACHE_DIRECTORY)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model.to(device)
+
+# Tokenize input
 input_ids = tokenizer(INPUT_TEXT, return_tensors="pt").input_ids.to(device)
 
 # Call the function to calculate MAX_NEW_TOKENS dynamically
@@ -60,98 +44,26 @@ MAX_NEW_TOKENS = calculate_max_new_tokens(
     tokenizer=tokenizer,
     model=model,
     max_new_tokens_default=DEFAULT_MAX_NEW_TOKENS,
-    device=device,
+    device=device
 )
 
-# Model info
-layers = model.transformer.h if hasattr(model.transformer, "h") else model.model.layers
-num_layers = len(layers)
-num_chunks = len([f for f in os.listdir(MODEL_PARTS_DIR) if f.startswith("rank")])
-layers_per_chunk = (num_layers + num_chunks - 1) // num_chunks
+start_time = time.time()
 
-# Initialize alibi and masks
-batch_size, seq_len = input_ids.shape
-attention_mask = torch.ones((batch_size, seq_len), device=device)[:, None, None, :]
-alibi = build_alibi(batch_size, model.config.num_attention_heads, seq_len, device)
-
-# Process model sequentially
-hidden_states = model.transformer.word_embeddings(input_ids)
-total_time = time.time()
-
+# Generate text
 with torch.no_grad():
-    for i in range(num_chunks):
-        chunk_start_time = time.time()
-        start_memory = get_memory_usage()
-
-        # Load model part
-        file_path = os.path.join(MODEL_PARTS_DIR, f"rank_{i}.pt")
-        part_layers = layers[i * layers_per_chunk : (i + 1) * layers_per_chunk]
-        part = load_model_part(file_path, part_layers, device)
-
-        # Process layers in chunk
-        layer_times = []
-        for layer_idx, layer in enumerate(part):
-            layer_start_time = time.time()
-            output = layer(hidden_states, alibi=alibi, attention_mask=attention_mask)
-            hidden_states = output[0] if isinstance(output, tuple) else output
-            layer_time = time.time() - layer_start_time
-            layer_times.append(layer_time)
-
-        # Track chunk metrics
-        chunk_time = time.time() - chunk_start_time
-        #end_memory = get_memory_usage()
-        metrics["chunks"].append(
-            {
-                "chunk": i,
-                "chunk_time": chunk_time,
-                "memory_used_mb": end_memory - start_memory,
-                "layer_times": layer_times,
-            }
-        )
-
-        # Clean up
-        del part
-        gc.collect()
-        torch.cuda.empty_cache()
-
-MAX_ITERS = 2
-continuation_signal = False  # Flag to detect when to stop
-current_input = INPUT_TEXT
-full_output = ""
-
-for _ in range(MAX_ITERS):
-    input_ids = tokenizer(current_input, return_tensors="pt").input_ids.to(device)
     output_ids = model.generate(
         input_ids,
         max_length=MAX_NEW_TOKENS + input_ids.size(1),
         temperature=TEMPERATURE,
         top_p=TOP_P,
         repetition_penalty=REPETITION_PENALTY,
-        pad_token_id=tokenizer.eos_token_id,
         do_sample=True,
+        pad_token_id=tokenizer.eos_token_id
     )
     output_text = tokenizer.decode(output_ids[0], skip_special_tokens=True)
-    
-    # Combine unique results and refine input
-    full_output += output_text
-    current_input += " Refine and improve the output above logically. Avoid repetition."
-    
-    # Stop if meaningful completion detected
-    if output_text.strip().endswith(('.', '?', '!', '<|endoftext|>')):
-        continuation_signal = True
-        break
 
-if not continuation_signal:
-    print("The output may still be incomplete.")
+total_time = time.time() - start_time
 
-print("\nGenerated Output:", full_output)
-
-
-# Final time
-metrics["total_time"] = time.time() - total_time
-print("\n--- Metrics ---")
-for chunk in metrics["chunks"]:
-    print(f"Chunk {chunk['chunk']} - Time: {chunk['chunk_time']:.3f}s, Memory Used: {chunk['memory_used_mb']:.2f}MB")
-    for idx, t in enumerate(chunk["layer_times"]):
-        print(f"    Layer {idx} Time: {t:.3f}s")
-print(f"Total Inference Time: {metrics['total_time']:.3f}s")
+# Print the generated output
+print("\nGenerated Output:", output_text)
+print(f"Total Inference Time: {round(total_time,3)}s")
