@@ -3,14 +3,12 @@ import torch
 from model_utils import load_tokenizer_from_cache, load_model_from_cache, calculate_max_new_tokens
 
 # Define prompt details
-SYSTEM_MESSAGE = "You are a helpful assistant with expertise in HVAC systems, building automation, smart building IoT, and optimization."
+SYSTEM_MESSAGE = "You are a Python coding LLM fine tuned to make optimization scripts to save energy in HVAC systems."
 QUESTION = (
-    "I have a variable air volume (VAV) air handling unit (AHU) in a commercial building with 10 VAV boxes. "
-    "Can you provide a pseudo-code algorithm to optimize the AHU leaving duct static pressure setpoint? "
-    "The algorithm should use VAV box damper positions and implement a trim-and-respond strategy to achieve the lowest possible static pressure setpoint "
-    "while maintaining an average damper position between 60% and 80% across all VAV boxes."
+    "Please make one pseudo code in Python of an algorithm to optimize variable supply fans in a large commercial building. "
+    "The pseudo code needs to display all math and data structures. " 
+    "The algorithm should adjust the duct static pressure setpoint based on air damper positions in the duct system to maintain the dampers approximately 70% open."
 )
-
 
 INSTRUCTION_TEMPLATE = (
     ">>CONTEXT<<\n{context}\n\n>>QUESTION<< {question}\n>>ANSWER<< "
@@ -21,8 +19,8 @@ INPUT_TEXT = INSTRUCTION_TEMPLATE.format(context=f"{SYSTEM_MESSAGE}", question=Q
 # Parameters
 DEFAULT_MAX_NEW_TOKENS = 300
 TEMPERATURE = 0.6
-TOP_P = 0.9
-REPETITION_PENALTY = 2.0
+TOP_P = 1.6
+REPETITION_PENALTY = 1.1
 
 # Paths for model and tokenizer
 FALCON_1B_CACHE_DIRECTORY = (
@@ -48,8 +46,8 @@ MAX_NEW_TOKENS = calculate_max_new_tokens(
 )
 
 start_time = time.time()
+print("Starting inference timer...!")
 
-# Generate text
 with torch.no_grad():
     output_ids = model.generate(
         input_ids,
@@ -62,8 +60,12 @@ with torch.no_grad():
     )
     output_text = tokenizer.decode(output_ids[0], skip_special_tokens=True)
 
+print("Inference completed.")
 total_time = time.time() - start_time
 
 # Print the generated output
-print("\nGenerated Output:", output_text)
+print("Generated Output:", output_text)
 print(f"Total Inference Time: {round(total_time,3)}s")
+print("Temperature Setting:", TEMPERATURE)
+print("Top Probability Setting:", TOP_P)
+print("Repeition Penalty Setting:", REPETITION_PENALTY)
