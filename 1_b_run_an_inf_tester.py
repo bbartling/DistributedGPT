@@ -1,6 +1,8 @@
 import time
 import torch
 from model_utils import load_tokenizer_from_cache, load_model_from_cache, calculate_max_new_tokens
+import os
+import re
 
 # Define prompt details
 SYSTEM_MESSAGE = "You are a Python coding LLM fine tuned to make optimization scripts to save energy in HVAC systems."
@@ -18,8 +20,8 @@ INPUT_TEXT = INSTRUCTION_TEMPLATE.format(context=f"{SYSTEM_MESSAGE}", question=Q
 
 # Parameters
 DEFAULT_MAX_NEW_TOKENS = 300
-TEMPERATURE = 0.6
-TOP_P = 1.6
+TEMPERATURE = 1.0
+TOP_P = 2.0
 REPETITION_PENALTY = 1.1
 
 # Paths for model and tokenizer
@@ -69,3 +71,19 @@ print(f"Total Inference Time: {round(total_time,3)}s")
 print("Temperature Setting:", TEMPERATURE)
 print("Top Probability Setting:", TOP_P)
 print("Repeition Penalty Setting:", REPETITION_PENALTY)
+
+
+filename = f"falcon1b_fan_controls.py"
+
+# Extract the Python code block from the output text
+match = re.search(r"```python\n(.*?)\n```", output_text, re.DOTALL)
+if match:
+    python_code = match.group(1)
+    # Save the extracted Python code to a file
+    with open(filename, "w") as file:
+        file.write("# Generated pseudo-code for optimizing variable supply fan controls\n")
+        file.write("# Model context: Optimizing HVAC energy efficiency\n\n")
+        file.write(python_code)
+    print(f"Extracted Python code saved to file: {filename}")
+else:
+    print("No Python code block found in the output text.")

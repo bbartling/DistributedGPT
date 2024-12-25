@@ -1,4 +1,4 @@
-import os
+import os, re
 import torch
 from model_utils import (
     load_model_part,
@@ -11,23 +11,33 @@ import gc
 import time
 
 
-# Define prompt details
-SYSTEM_MESSAGE = "You are a coding LLM fine tuned to make optimization scripts to save energy in HVAC systems."
-QUESTION = (
-    "I need pseudo code of an algorithm to optimize variable supply fans in a large commercial building. "
-    "The pseudo code needs to display all math and data structures. " 
-    "The algorithm should adjust the duct static pressure setpoint based on air damper positions in the duct system to maintain the dampers approximately 70% open."
+# Define system message and structured prompt
+SYSTEM_MESSAGE = (
+    "Answer the question as truthfully as possible using the provided text, "
+    "and if the answer is not contained within the text below, respond with \"I can't answer that\""
 )
+
 INSTRUCTION_TEMPLATE = (
     ">>CONTEXT<<\n{context}\n\n>>QUESTION<< {question}\n>>ANSWER<< "
 )
 
-INPUT_TEXT = INSTRUCTION_TEMPLATE.format(context=f"{SYSTEM_MESSAGE}", question=QUESTION)
+# Example Context and Question
+CONTEXT = (
+    "You are a Python coding LLM fine tuned to make optimization scripts to save energy in HVAC systems."
+)
+QUESTION = (
+    "Please make one pseudo code in Python of an algorithm to optimize variable supply fans in a large commercial building. "
+    "The pseudo code needs to display all math and data structures. " 
+    "The algorithm should adjust the duct static pressure setpoint based on air damper positions in the duct system to maintain the dampers approximately 70% open."
+)
+
+# Assemble the Input Text
+INPUT_TEXT = INSTRUCTION_TEMPLATE.format(context=CONTEXT, question=QUESTION)
 
 # Parameters
 DEFAULT_MAX_NEW_TOKENS = 300
-TEMPERATURE = 0.9
-TOP_P = 2.0
+TEMPERATURE = 1.0
+TOP_P = 1.0
 REPETITION_PENALTY = 1.1
 
 # Paths for model and tokenizer
@@ -94,7 +104,22 @@ with torch.no_grad():
 
 
 # Final time
-time_delta = time.time() - total_time
+time_delta = time.time() - start_time
 print("\n--- Metrics ---")
 print(f"Total Inference Time: {time_delta:.3f}s")
 print("\nGenerated Output:", output_text)
+
+filename = f"falcon7b_fan_controls.py"
+
+# Extract the Python code block from the output text
+match = re.search(r"```python\n(.*?)\n```", output_text, re.DOTALL)
+if match:
+    python_code = match.group(1)
+    # Save the extracted Python code to a file
+    with open(filename, "w") as file:
+        file.write("# Generated pseudo-code for optimizing variable supply fan controls\n")
+        file.write("# Model context: Optimizing HVAC energy efficiency\n\n")
+        file.write(python_code)
+    print(f"Extracted Python code saved to file: {filename}")
+else:
+    print("No Python code block found in the output text.")
