@@ -1,6 +1,6 @@
 # DistributedGPT
 
-This is a hobby project aimed at learning and experimentation. The primary goal is to explore running a large language model (LLM) entirely on `localhost` by breaking the model into smaller portions, loading them sequentially into memory for inference, and unloading them to optimize resource usage.
+This is a hobby project aimed at learning and experimentation. The primary goal is to explore running a large language model (LLM) entirely on `localhost` by breaking the model into smaller portions, loading them sequentially into memory for inference, and unloading them to optimize resource usage. At moment we are expermenting with seeing if the LLM can come up with good pseudo code for HVAC systems optimizations.
 
 ## Installation
 
@@ -108,6 +108,12 @@ Model loaded successfully!
 
 - [ ] **Brainstorm further ideas or improvements.** 🤔
 
+## TODO
+Implement a conversation history and prompt input function in Py to push model to complete creations.
+* https://youtu.be/v-dO88wU-jM?si=AErw3jewRs-oQ_zr
+* https://langchain-ai.github.io/langgraph/concepts/memory/
+
+Experiment with a coding LLM to get better pseudo code results.
 
 ## License
 
